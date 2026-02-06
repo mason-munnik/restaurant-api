@@ -42,8 +42,8 @@ def analyze(review: Review, db: Session = Depends(get_db)):
 
     new_review = models.ReviewModel(
         restaurant_id=review.restaurant_id,
-        input_text=review.review_text,
-        sentiment_score=score,
+        review_text=review.review_text,
+        score=score,
         verdict=verdict
     )
 

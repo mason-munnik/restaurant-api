@@ -23,7 +23,7 @@ An API that processes restaurant reviews and uses Natural Language Processing (N
 
 3.  **Install dependencies:**
     ```bash
-    pip install fastapi uvicorn textblob
+    pip install fastapi uvicorn textblob sqlalchemy
     ```
 
 4.  **Start the server:**
