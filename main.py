@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from pydantic import BaseModel
 from nlp import SentimentAnalyzer
 from sqlalchemy.orm import Session
+from typing import List
 
 import models
 from database import engine, SessionLocal
@@ -48,5 +49,11 @@ def analyze(review: Review, db: Session = Depends(get_db)):
     )
 
     db.add(new_review)
+    db.commit()
+    db.refresh(new_review)
 
     return new_review
+
+@app.get("/reviews")
+def list_reviews(limit: int = 10, db: Session = Depends(get_db)):
+    return db.query(models.ReviewModel).all()
