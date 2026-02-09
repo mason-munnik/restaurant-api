@@ -56,4 +56,25 @@ def analyze(review: Review, db: Session = Depends(get_db)):
 
 @app.get("/reviews")
 def list_reviews(limit: int = 10, db: Session = Depends(get_db)):
+    """
+    Lists all reviews in database
+    """
     return db.query(models.ReviewModel).all()
+
+@app.delete("/reviews/{review_id}")
+def delete_review(review_id: int, db = Depends(get_db)):
+    """
+    Deletes a review by ID
+        
+    -**review_id**: the ID of the review being deleted
+
+    Returns a confirmation when the review is deleted
+    """
+    review = db.query(models.ReviewModel).filter(models.ReviewModel.id == review_id).first()
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    
+    db.delete(review)
+    db.commit()
+
+    return {"deleted":True, "review_id": review_id}
