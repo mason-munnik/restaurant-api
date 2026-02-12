@@ -43,8 +43,8 @@ Analyzes the sentiment of a review.
   "review_text": "The food was fantastic!"
 }
 ```
-# 'GET /reviews'
+# `GET /reviews`
 Lists all reviews in database
 
-# 'DELETE /reviews/{review_id}'
+# `DELETE /reviews/{review_id}`
 Deletes a review by restaurant ID
