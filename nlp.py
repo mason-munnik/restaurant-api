@@ -8,9 +8,7 @@ class SentimentAnalyzer:
             model="nlptown/bert-base-multilingual-uncased-sentiment",
         )
 
-    def get_score(self, text: str) -> float:
+    def get_score(self, text: str) -> int:
         result = self._pipeline(text, truncation=True, max_length=512)[0]
         # Label format is "N stars" where N is 1-5
-        # Map to [-1.0, 1.0]: 1->-1.0, 3->0.0, 5->1.0
-        stars = int(result["label"][0])
-        return (stars - 3) / 2.0
+        return int(result["label"][0])

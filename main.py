@@ -61,7 +61,7 @@ def analyze(review: Review, db: Session = Depends(get_db)):
     - **restaurant_id**: the ID of the restaurant being reviewed
     - **review_text**: the text of the review
 
-    Returns a score between -1.0(Negative) and 1.0(Positive)
+    Returns a score between 1 (Negative) and 5 (Positive)
     """
     # using TextBlob for now for simplicity, but planning to swap to 
     # a BERT model for more accuracy later on
@@ -70,10 +70,10 @@ def analyze(review: Review, db: Session = Depends(get_db)):
         score = analyzer.get_score(review.review_text)
         
         # validate that score is in expected range (defensive programming)
-        if not -1.0 <= score <= 1.0:
+        if not 1 <= score <= 5:
             raise ValueError(f"Unexpected sentiment score: {score}")
         
-        verdict = "Positive" if score > 0 else "Negative"
+        verdict = "Positive" if score > 3 else "Negative"
 
         new_review = models.ReviewModel(
             restaurant_id=review.restaurant_id,
