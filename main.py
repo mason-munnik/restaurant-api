@@ -80,12 +80,14 @@ def analyze(review: Review, db: Session = Depends(get_db)):
             score=score,
             verdict=verdict
         )
-
-    db.add(new_review)
-    db.commit()
-    db.refresh(new_review)
-
-    return new_review
+        
+        db.add(new_review)
+        db.commit()
+        db.refresh(new_review)
+        
+        return new_review
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/reviews")
 def list_reviews(limit: int = 10, db: Session = Depends(get_db)):
