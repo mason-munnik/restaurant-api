@@ -1,5 +1,6 @@
 from transformers import pipeline
 
+
 class SentimentAnalyzer:
     # Small, fast-on-CPU BERT variant fine-tuned for binary pos/neg
     # sentiment; also the default model behind

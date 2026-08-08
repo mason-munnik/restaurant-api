@@ -1,8 +1,10 @@
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Float, Integer, String
+
 from database import Base
 
+
 class ReviewModel(Base):
-    __tablename__ = 'reviews'
+    __tablename__ = "reviews"
 
     id = Column(Integer, primary_key=True, index=True)
     restaurant_id = Column(Integer)

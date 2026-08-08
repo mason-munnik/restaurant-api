@@ -1,46 +1,3 @@
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-import main
-from database import Base
-
-
-def _make_stub_pipeline(label="POSITIVE", score=0.95):
-    def stub_pipeline(text, **kwargs):
-        return [{"label": label, "score": score}]
-    return stub_pipeline
-
-
-@pytest.fixture
-def client():
-    # isolated in-memory DB per test, so tests never touch the real reviews.db
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    Base.metadata.create_all(bind=engine)
-
-    def override_get_db():
-        db = TestingSessionLocal()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    main.app.dependency_overrides[main.get_db] = override_get_db
-    main.analyzer._pipeline = _make_stub_pipeline()
-
-    with TestClient(main.app) as test_client:
-        yield test_client
-
-    main.app.dependency_overrides.clear()
-
-
 def test_analyze_valid_review_returns_200(client):
     response = client.post(
         "/analyze",
@@ -117,3 +74,67 @@ def test_delete_existing_review_returns_200_and_removes_it(client):
 def test_delete_nonexistent_review_returns_404(client):
     response = client.delete("/reviews/999999")
     assert response.status_code == 404
+
+
+# --- request param validation -------------------------------------------------
+
+PAYLOAD = {"restaurant_id": 1, "review_text": "food was great"}
+
+
+def test_reviews_limit_default_returns_200(client):
+    assert client.get("/reviews").status_code == 200
+
+
+def test_reviews_limit_one_accepted(client):
+    assert client.get("/reviews?limit=1").status_code == 200
+
+
+def test_reviews_limit_hundred_accepted(client):
+    assert client.get("/reviews?limit=100").status_code == 200
+
+
+def test_reviews_limit_zero_rejected(client):
+    response = client.get("/reviews?limit=0")
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["query", "limit"]
+
+
+def test_reviews_limit_over_max_rejected(client):
+    assert client.get("/reviews?limit=101").status_code == 422
+
+
+def test_reviews_limit_negative_rejected(client):
+    assert client.get("/reviews?limit=-1").status_code == 422
+
+
+def test_reviews_limit_non_integer_rejected(client):
+    assert client.get("/reviews?limit=abc").status_code == 422
+
+
+def test_reviews_limit_caps_returned_rows(client):
+    # the only test proving `limit` is actually applied, not merely validated
+    for _ in range(3):
+        client.post("/analyze", json=PAYLOAD)
+
+    response = client.get("/reviews?limit=2")
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+
+
+def test_delete_review_id_one_reaches_handler(client):
+    # the ge=1 boundary passes validation and reaches the handler
+    assert client.delete("/reviews/1").status_code == 404
+
+
+def test_delete_review_id_zero_rejected(client):
+    response = client.delete("/reviews/0")
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["path", "review_id"]
+
+
+def test_delete_review_id_negative_rejected(client):
+    assert client.delete("/reviews/-1").status_code == 422
+
+
+def test_delete_review_id_non_integer_rejected(client):
+    assert client.delete("/reviews/abc").status_code == 422
