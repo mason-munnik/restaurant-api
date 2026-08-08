@@ -17,6 +17,7 @@ def rate_limit(env_var: str, default: str):
     Each endpoint gets its own env var, so they are independently tunable as
     the API grows.
     """
+
     def provider() -> str:
         return os.getenv(env_var) or default
 

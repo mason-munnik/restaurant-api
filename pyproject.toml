@@ -1,0 +1,20 @@
+[tool.ruff]
+exclude = ["venv"]
+
+[tool.ruff.lint]
+# E402 (module import not at top of file) is not on by default, but conftest.py
+# genuinely depends on import order -- it must patch nlp.pipeline before
+# importing main, or every test run loads real BERT weights. Enabling it makes
+# the `# noqa: E402` comments there meaningful rather than "unused".
+extend-select = ["E402"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency injection is expressed as function calls in argument
+# defaults (`db: Session = Depends(get_db)`). That is the canonical idiom, not
+# the mutable-default bug B008 exists to catch, so exempt these callables.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+]

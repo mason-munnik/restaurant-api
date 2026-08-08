@@ -12,6 +12,7 @@ import nlp
 def _fake_pipeline_factory(*args, **kwargs):
     def fake_pipeline(text, **kwargs):
         return [{"label": "POSITIVE", "score": 0.99}]
+
     return fake_pipeline
 
 
@@ -33,6 +34,7 @@ RATE_LIMIT_ENV_VAR = "ANALYZE_RATE_LIMIT"
 def _make_stub_pipeline(label="POSITIVE", score=0.95):
     def stub_pipeline(text, **kwargs):
         return [{"label": label, "score": score}]
+
     return stub_pipeline
 
 
@@ -85,6 +87,7 @@ def make_client(clean_security_env, monkeypatch):
     monkeypatch.setenv(API_KEY_ENV_VAR, TEST_API_KEY)
 
     with ExitStack() as stack:
+
         def _make(api_key=TEST_API_KEY, ip="testclient"):
             headers = {} if api_key is None else {API_KEY_HEADER: api_key}
             return stack.enter_context(

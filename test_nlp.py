@@ -8,6 +8,7 @@ def _stub_pipeline(label, score, calls=None):
         if calls is not None:
             calls.append((text, kwargs))
         return [{"label": label, "score": score}]
+
     return pipeline
 
 

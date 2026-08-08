@@ -98,9 +98,7 @@ def test_invalid_requests_do_not_consume_quota(rl_client):
     # the limiter runs after dependency + body validation, so rejected
     # requests never reach it
     for _ in range(5):
-        bad = rl_client.post(
-            "/analyze", json={"restaurant_id": 1, "review_text": ""}
-        )
+        bad = rl_client.post("/analyze", json={"restaurant_id": 1, "review_text": ""})
         assert bad.status_code == 422
 
     assert rl_client.post("/analyze", json=PAYLOAD).status_code == 200

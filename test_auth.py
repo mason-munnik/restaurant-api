@@ -115,9 +115,7 @@ def test_api_key_is_read_per_request_not_at_import(make_client, monkeypatch):
     monkeypatch.setenv(API_KEY_ENV_VAR, "rotated")
     assert client.post("/analyze", json=PAYLOAD).status_code == 403
 
-    rotated = client.post(
-        "/analyze", json=PAYLOAD, headers={API_KEY_HEADER: "rotated"}
-    )
+    rotated = client.post("/analyze", json=PAYLOAD, headers={API_KEY_HEADER: "rotated"})
     assert rotated.status_code == 200
 
 
