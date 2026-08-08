@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # lets the e2e job be run on demand against any branch, since it is
+  # otherwise main-only and would go unverified until after a merge
+  workflow_dispatch:
 
 jobs:
   test:
@@ -30,7 +33,9 @@ jobs:
   # needs torch (~326MB) and the model weights (~260MB). Kept off the PR path
   # to keep those checks at ~30s; runs on pushes to main instead.
   e2e:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
