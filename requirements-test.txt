@@ -1,0 +1,23 @@
+# Test-only dependency set, used by CI.
+#
+# Deliberately omits `torch` (~326MB, plus its sympy/networkx deps), cutting a
+# CI install from ~676MB to ~239MB. The suite never runs real BERT inference:
+# conftest.py replaces `nlp.pipeline` before `main` is imported, so
+# `transformers` only needs to be importable, not functional. `transformers`
+# itself IS required, since nlp.py imports `pipeline` at module scope.
+#
+# Only direct dependencies are pinned here; pip resolves the transitives.
+# Keep versions in sync with requirements.txt.
+#
+# If you add a test needing the real model, decorate it with @requires_torch
+# (see conftest.py) so it self-skips here rather than failing, and run it
+# locally against the full requirements.txt.
+
+fastapi==0.128.0
+httpx==0.28.1
+limits==5.8.0
+pydantic==2.12.5
+pytest==9.1.1
+slowapi==0.1.10
+sqlalchemy==2.0.51
+transformers==4.46.3

@@ -1,3 +1,4 @@
+import importlib.util
 from contextlib import ExitStack
 
 import pytest
@@ -29,6 +30,14 @@ TEST_API_KEY = "test-api-key"
 API_KEY_ENV_VAR = "API_KEY"
 API_KEY_HEADER = "X-API-Key"
 RATE_LIMIT_ENV_VAR = "ANALYZE_RATE_LIMIT"
+
+# CI installs requirements-test.txt, which omits torch (see that file for why),
+# so anything exercising the real BERT model must self-skip rather than fail.
+# Decorate such a test with @requires_torch.
+requires_torch = pytest.mark.skipif(
+    importlib.util.find_spec("torch") is None,
+    reason="torch not installed (CI runs the torch-free requirements-test.txt)",
+)
 
 
 def _make_stub_pipeline(label="POSITIVE", score=0.95):

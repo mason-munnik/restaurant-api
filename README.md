@@ -38,6 +38,22 @@ An API that processes restaurant reviews and uses Natural Language Processing (N
     Hugging Face and caches it under `~/.cache/huggingface`, so it will pause
     and needs internet access. Subsequent runs start immediately from cache.
 
+# Running the tests
+
+```bash
+pytest -v
+```
+
+The suite never runs real BERT inference — `conftest.py` replaces
+`nlp.pipeline` before `main` is imported, so no model weights are downloaded
+and tests finish in well under a second.
+
+Because of that, CI installs `requirements-test.txt`, which omits `torch`
+(~326MB plus its `sympy`/`networkx` deps) and cuts the install from ~676MB to
+~220MB. If you add a test that needs the real model, decorate it with
+`@requires_torch` (defined in `conftest.py`) so it self-skips in CI instead of
+failing, and run it locally against the full `requirements.txt`.
+
 # Configuration
 
 | Variable | Required | Default | Purpose |
