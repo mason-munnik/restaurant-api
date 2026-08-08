@@ -1,10 +1,16 @@
-from fastapi import FastAPI, Depends, HTTPException
-from pydantic import BaseModel, field_validator, Field
+from typing import Annotated
+
+from fastapi import FastAPI, Depends, HTTPException, Path, Query, Request, Response
+from pydantic import BaseModel, field_validator
 from nlp import SentimentAnalyzer
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 
+import config
 import models
 from database import engine, SessionLocal
+from security import limiter, require_api_key
 
 # creates a reviews.db file
 models.Base.metadata.create_all(bind=engine)
@@ -12,6 +18,11 @@ models.Base.metadata.create_all(bind=engine)
 # initialize the analzyer and the API
 analyzer = SentimentAnalyzer()
 app = FastAPI()
+
+# slowapi wiring: the handler reads request.app.state.limiter to add the
+# Retry-After / X-RateLimit-* headers to a 429.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 # helper that opens the db before the request and closes it after
@@ -50,8 +61,14 @@ class Review(BaseModel):
             raise ValueError("Restaurant ID seems invalid, too large")
         return v
 
-@app.post("/analyze")   
-def analyze(review: Review, db: Session = Depends(get_db)):
+@app.post("/analyze", dependencies=[Depends(require_api_key)])
+@limiter.limit(config.rate_limit("ANALYZE_RATE_LIMIT", "10/minute"))
+def analyze(
+    request: Request,
+    response: Response,
+    review: Review,
+    db: Session = Depends(get_db),
+):
     """
     Analyzes a restaurant review and returns a sentiment score
 
@@ -88,11 +105,17 @@ def analyze(review: Review, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/reviews")
-def list_reviews(limit: int = 10, db: Session = Depends(get_db)):
+def list_reviews(
+    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    db: Session = Depends(get_db),
+):
     return db.query(models.ReviewModel).limit(limit).all()
 
-@app.delete("/reviews/{review_id}")
-def delete_review(review_id: int, db: Session = Depends(get_db)):
+@app.delete("/reviews/{review_id}", dependencies=[Depends(require_api_key)])
+def delete_review(
+    review_id: Annotated[int, Path(ge=1)],
+    db: Session = Depends(get_db),
+):
     """
     Deletes a review by its ID
     """
