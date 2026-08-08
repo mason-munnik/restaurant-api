@@ -48,7 +48,17 @@ The suite never runs real BERT inference — `tests/conftest.py` replaces
 `nlp.pipeline` before `main` is imported, so no model weights are downloaded
 and tests finish in well under a second.
 
-Because of that, CI installs `requirements-test.txt`, which omits `torch`
+End-to-end tests live in `tests/test_e2e.py`. They boot a real uvicorn server
+and run real BERT inference over HTTP, so they need `torch` and take minutes.
+They're excluded from the default run and opt-in via their marker:
+
+```bash
+pytest -m e2e -v
+```
+
+CI runs them in a separate job on pushes to `main` only, keeping PR checks fast.
+
+Because of that, CI installs `requirements-test.txt` for the fast suite, which omits `torch`
 (~326MB plus its `sympy`/`networkx` deps) and cuts the install from ~676MB to
 ~220MB. If you add a test that needs the real model, decorate it with
 `@requires_torch` (defined in `tests/conftest.py`) so it self-skips in CI instead of

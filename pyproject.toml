@@ -3,6 +3,11 @@
 # for `from app... import ...` to resolve without installing the project.
 pythonpath = ["."]
 testpaths = ["tests"]
+# E2E tests boot a real uvicorn process and run real BERT inference, so they
+# need torch and take minutes. Excluded by default; the CI e2e job (main
+# branch only) opts in with `pytest -m e2e`.
+addopts = "-m 'not e2e'"
+markers = ["e2e: end-to-end test against a live server and the real model"]
 
 [tool.ruff]
 exclude = ["venv"]
