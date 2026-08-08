@@ -14,32 +14,6 @@ analyzer = SentimentAnalyzer()
 app = FastAPI()
 
 
-@field_validator('review_text')
-@classmethod
-def validate_review_text(cls, v: str):
-    # remove leading or trailing whitespace
-    v = v.strip()
-    # check if the review is empty or just whitespace
-    if not v or v.isspace():
-        raise ValueError("Review cannot be empty or only whitespace.")
-    
-    # Check if the review has real words, not just punctuation, and is long enough
-    words = v.split()
-    if len(words) < 3:
-        raise ValueError("Review too short, must contain at least 3 words")
-    
-    return v
-
-
-@field_validator('restaurant_id')
-@classmethod
-def validate_restaurant_id(cls, v: int):
-    # wanted to set an upper bound for restaurant id that seems realistic
-    if v > 10000:
-        raise ValueError("Restaurant ID seems invalid, too large")
-    return v
-
-
 # helper that opens the db before the request and closes it after
 def get_db():
     db = SessionLocal()
@@ -51,6 +25,30 @@ def get_db():
 class Review(BaseModel):
     restaurant_id: int
     review_text: str
+
+    @field_validator('review_text')
+    @classmethod
+    def validate_review_text(cls, v: str):
+        # remove leading or trailing whitespace
+        v = v.strip()
+        # check if the review is empty or just whitespace
+        if not v or v.isspace():
+            raise ValueError("Review cannot be empty or only whitespace.")
+
+        # Check if the review has real words, not just punctuation, and is long enough
+        words = v.split()
+        if len(words) < 3:
+            raise ValueError("Review too short, must contain at least 3 words")
+
+        return v
+
+    @field_validator('restaurant_id')
+    @classmethod
+    def validate_restaurant_id(cls, v: int):
+        # wanted to set an upper bound for restaurant id that seems realistic
+        if v > 10000:
+            raise ValueError("Restaurant ID seems invalid, too large")
+        return v
 
 @app.post("/analyze")   
 def analyze(review: Review, db: Session = Depends(get_db)):
@@ -91,4 +89,17 @@ def analyze(review: Review, db: Session = Depends(get_db)):
 
 @app.get("/reviews")
 def list_reviews(limit: int = 10, db: Session = Depends(get_db)):
-    return db.query(models.ReviewModel).all()
+    return db.query(models.ReviewModel).limit(limit).all()
+
+@app.delete("/reviews/{review_id}")
+def delete_review(review_id: int, db: Session = Depends(get_db)):
+    """
+    Deletes a review by its ID
+    """
+    review = db.query(models.ReviewModel).filter(models.ReviewModel.id == review_id).first()
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+
+    db.delete(review)
+    db.commit()
+    return {"detail": f"Review {review_id} deleted"}

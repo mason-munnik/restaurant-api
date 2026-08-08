@@ -5,7 +5,8 @@ An API that processes restaurant reviews and uses Natural Language Processing (N
 # Tech Stack
 * Python 3.10+
 * FastAPI 
-* TextBlob (NLP/Sentiment Analysis)
+* DistilBERT (`distilbert-base-uncased-finetuned-sst-2-english`, via Hugging Face `transformers`) for sentiment analysis
+* SQLAlchemy (SQLite)
 * Uvicorn (ASGI server)
 
 # How to run
@@ -23,13 +24,18 @@ An API that processes restaurant reviews and uses Natural Language Processing (N
 
 3.  **Install dependencies:**
     ```bash
-    pip install fastapi uvicorn textblob sqlalchemy
+    # torch is CPU-only here to avoid pulling multi-GB CUDA wheels
+    pip install torch --index-url https://download.pytorch.org/whl/cpu
+    pip install -r requirements.txt
     ```
 
 4.  **Start the server:**
     ```bash
     uvicorn main:app --reload
     ```
+    The first run downloads the DistilBERT sentiment model (~260MB) from
+    Hugging Face and caches it under `~/.cache/huggingface`, so it will pause
+    and needs internet access. Subsequent runs start immediately from cache.
 
 # API Endpoints
 
@@ -47,4 +53,4 @@ Analyzes the sentiment of a review.
 Lists all reviews in database
 
 # `DELETE /reviews/{review_id}`
-Deletes a review by restaurant ID
+Deletes a review by its ID
