@@ -1,6 +1,6 @@
 import pytest
 
-from nlp import SentimentAnalyzer
+from app.services.nlp import SentimentAnalyzer
 
 
 def _stub_pipeline(label, score, calls=None):

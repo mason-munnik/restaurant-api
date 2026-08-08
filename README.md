@@ -32,7 +32,7 @@ An API that processes restaurant reviews and uses Natural Language Processing (N
 4.  **Start the server:**
     ```bash
     export API_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
-    uvicorn main:app --reload
+    uvicorn app.main:app --reload
     ```
     The first run downloads the DistilBERT sentiment model (~260MB) from
     Hugging Face and caches it under `~/.cache/huggingface`, so it will pause
@@ -44,14 +44,14 @@ An API that processes restaurant reviews and uses Natural Language Processing (N
 pytest -v
 ```
 
-The suite never runs real BERT inference — `conftest.py` replaces
+The suite never runs real BERT inference — `tests/conftest.py` replaces
 `nlp.pipeline` before `main` is imported, so no model weights are downloaded
 and tests finish in well under a second.
 
 Because of that, CI installs `requirements-test.txt`, which omits `torch`
 (~326MB plus its `sympy`/`networkx` deps) and cuts the install from ~676MB to
 ~220MB. If you add a test that needs the real model, decorate it with
-`@requires_torch` (defined in `conftest.py`) so it self-skips in CI instead of
+`@requires_torch` (defined in `tests/conftest.py`) so it self-skips in CI instead of
 failing, and run it locally against the full `requirements.txt`.
 
 # Configuration
@@ -103,21 +103,49 @@ to `slowapi.util.get_ipaddr` only if the proxy is trusted, since the
 - `DELETE /reviews/{review_id}` requires `review_id >= 1`; otherwise 422.
 - `review_text` must be non-empty and at least 3 words; `restaurant_id` must be <= 10000.
 
+# Project layout
+
+```
+app/
+  main.py               # creates the app, wires slowapi, includes routers
+  api/routes/
+    reviews.py          # all endpoints (APIRouter) + the analyzer singleton
+  core/
+    config.py           # env-driven settings, read at request time
+    security.py         # require_api_key dependency + rate limiter
+  db/
+    session.py          # engine, SessionLocal, Base, get_db
+    models.py           # ReviewModel (SQLAlchemy)
+  schemas/
+    review.py           # Review (Pydantic) + its validators
+  services/
+    nlp.py              # SentimentAnalyzer (DistilBERT)
+tests/                  # conftest.py + the suite
+```
+
+Note: the `analyzer = SentimentAnalyzer()` singleton lives in
+`app/api/routes/reviews.py`, **not** in `app/services/nlp.py`. That is
+deliberate — `tests/conftest.py` patches `pipeline` on the nlp module before
+importing anything that constructs an analyzer, which would be impossible if
+importing the service itself created one.
+
 # Adding a new endpoint
 
 Auth and an independently-tunable rate limit are two lines:
 
 ```python
-@app.post("/summarize", dependencies=[Depends(require_api_key)])
+@router.post("/summarize", dependencies=[Depends(require_api_key)])
 @limiter.limit(config.rate_limit("SUMMARIZE_RATE_LIMIT", "5/minute"))
 def summarize(request: Request, response: Response, ...):
 ```
 
-Config lives in `config.py`, the auth dependency and limiter in `security.py`.
-Tests get DB/limiter/env isolation for free from the `make_client` fixture in
-`conftest.py`. Once endpoints outgrow a single file, move them onto an
-`APIRouter(prefix=..., dependencies=[Depends(require_api_key)])` so a whole
-group is protected once instead of per-endpoint.
+Config lives in `app/core/config.py`, the auth dependency and limiter in
+`app/core/security.py`. Tests get DB/limiter/env isolation for free from the
+`make_client` fixture in `tests/conftest.py`. Endpoints that should *all* be
+protected can be grouped onto their own
+`APIRouter(dependencies=[Depends(require_api_key)])` so auth is applied once
+for the group — the current router applies it per-endpoint because
+`GET /reviews` is intentionally public.
 
 # API Endpoints
 

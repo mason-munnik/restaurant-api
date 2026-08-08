@@ -1,8 +1,8 @@
 import pytest
+from conftest import API_KEY_ENV_VAR, API_KEY_HEADER, TEST_API_KEY
 from fastapi import HTTPException
 
-import security
-from conftest import API_KEY_ENV_VAR, API_KEY_HEADER, TEST_API_KEY
+from app.core import security
 
 PAYLOAD = {"restaurant_id": 1, "review_text": "food was great"}
 

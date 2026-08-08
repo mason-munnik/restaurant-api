@@ -1,3 +1,9 @@
+[tool.pytest.ini_options]
+# tests/ lives outside the `app` package, so the repo root must be importable
+# for `from app... import ...` to resolve without installing the project.
+pythonpath = ["."]
+testpaths = ["tests"]
+
 [tool.ruff]
 exclude = ["venv"]
 
