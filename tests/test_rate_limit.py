@@ -1,7 +1,7 @@
 import pytest
-
-import security
 from conftest import RATE_LIMIT_ENV_VAR
+
+from app.core import security
 
 PAYLOAD = {"restaurant_id": 1, "review_text": "food was great"}
 

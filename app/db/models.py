@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Float, Integer, String
 
-from database import Base
+from app.db.session import Base
 
 
 class ReviewModel(Base):

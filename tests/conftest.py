@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-import nlp
+from app.services import nlp
 
 
 def _fake_pipeline_factory(*args, **kwargs):
@@ -17,14 +17,15 @@ def _fake_pipeline_factory(*args, **kwargs):
     return fake_pipeline
 
 
-# main.py builds `analyzer = SentimentAnalyzer()` at import time, which would
-# otherwise download/load real BERT weights the moment any test imports it.
-# Everything below must be imported AFTER this line.
+# app/api/routes/reviews.py builds `analyzer = SentimentAnalyzer()` at import
+# time, which would otherwise download/load real BERT weights the moment any
+# test imports it. Everything below must be imported AFTER this line.
 nlp.pipeline = _fake_pipeline_factory
 
-import main  # noqa: E402
-import security  # noqa: E402
-from database import Base  # noqa: E402
+from app.api.routes import reviews  # noqa: E402
+from app.core import security  # noqa: E402
+from app.db.session import Base, get_db  # noqa: E402
+from app.main import app  # noqa: E402
 
 TEST_API_KEY = "test-api-key"
 API_KEY_ENV_VAR = "API_KEY"
@@ -91,8 +92,8 @@ def make_client(clean_security_env, monkeypatch):
         finally:
             db.close()
 
-    main.app.dependency_overrides[main.get_db] = override_get_db
-    main.analyzer._pipeline = _make_stub_pipeline()
+    app.dependency_overrides[get_db] = override_get_db
+    reviews.analyzer._pipeline = _make_stub_pipeline()
     monkeypatch.setenv(API_KEY_ENV_VAR, TEST_API_KEY)
 
     with ExitStack() as stack:
@@ -100,12 +101,12 @@ def make_client(clean_security_env, monkeypatch):
         def _make(api_key=TEST_API_KEY, ip="testclient"):
             headers = {} if api_key is None else {API_KEY_HEADER: api_key}
             return stack.enter_context(
-                TestClient(main.app, headers=headers, client=(ip, 50000))
+                TestClient(app, headers=headers, client=(ip, 50000))
             )
 
         yield _make
 
-    main.app.dependency_overrides.clear()
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture

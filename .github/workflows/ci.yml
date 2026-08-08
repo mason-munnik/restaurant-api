@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # lets the e2e job be run on demand against any branch, since it is
+  # otherwise main-only and would go unverified until after a merge
+  workflow_dispatch:
 
 jobs:
   test:
@@ -25,3 +28,35 @@ jobs:
 
       - name: Run tests
         run: pytest -v
+
+  # Boots a real uvicorn server and runs real BERT inference over HTTP, so it
+  # needs torch (~326MB) and the model weights (~260MB). Kept off the PR path
+  # to keep those checks at ~30s; runs on pushes to main instead.
+  e2e:
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Cache Hugging Face model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-distilbert-sst2-v1
+
+      - name: Install dependencies
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+
+      - name: Run end-to-end tests
+        run: pytest -m e2e -v

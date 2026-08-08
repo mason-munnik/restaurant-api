@@ -4,7 +4,7 @@ from fastapi import Header, HTTPException, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-import config
+from app.core import config
 
 
 def require_api_key(
