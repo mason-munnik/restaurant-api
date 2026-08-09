@@ -34,13 +34,27 @@ pytestmark = [pytest.mark.e2e, requires_torch]
 def live_server(tmp_path_factory):
     """Boot uvicorn in a temp cwd so its ./reviews.db doesn't touch the repo."""
     workdir = tmp_path_factory.mktemp("e2e")
+    db_url = f"sqlite:///{workdir}/reviews.db"
     env = {
         **os.environ,
         "API_KEY": API_KEY,
         "ANALYZE_RATE_LIMIT": RATE_LIMIT,
+        "DATABASE_URL": db_url,
         # the app package lives in the repo, but cwd is the temp dir
         "PYTHONPATH": str(REPO_ROOT),
     }
+    # App startup no longer creates tables (schema is Alembic-managed), so the
+    # fresh workdir DB needs migrating before uvicorn can serve requests. Run
+    # from REPO_ROOT so alembic.ini/alembic/env.py are found; DATABASE_URL
+    # points env.py at the workdir DB regardless of cwd.
+    subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=REPO_ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app.main:app", "--port", str(PORT)],
         cwd=workdir,
@@ -64,6 +78,17 @@ def live_server(tmp_path_factory):
     else:
         proc.kill()
         pytest.fail("server did not become ready within 300s")
+
+    # Seeds restaurants with ids 1-4, matching the restaurant_id values the
+    # tests below already hardcode -- a fresh DB assigns sequential ids, so
+    # creating four here in order lines up with what each test expects.
+    for i in range(1, 5):
+        httpx.post(
+            f"{BASE_URL}/restaurants",
+            json={"name": f"Seed Restaurant {i}"},
+            headers={"X-API-Key": API_KEY},
+            timeout=30,
+        )
 
     yield BASE_URL
 
@@ -151,6 +176,41 @@ def test_reviews_are_listed_and_deletable(live_server, auth):
 
     remaining = httpx.get(f"{live_server}/reviews", timeout=30).json()
     assert all(r["id"] != review_id for r in remaining)
+
+
+def test_analyze_unknown_restaurant_returns_404_on_live_server(live_server, auth):
+    # cheap: the restaurant lookup happens before BERT inference is invoked
+    response = httpx.post(
+        f"{live_server}/analyze",
+        json={"restaurant_id": 999999, "review_text": "food was great here"},
+        headers=auth,
+        timeout=30,
+    )
+    assert response.status_code == 404
+
+
+def test_restaurants_are_created_listed_and_deletable(live_server, auth):
+    created = httpx.post(
+        f"{live_server}/restaurants",
+        json={"name": "The Live Server Cafe"},
+        headers=auth,
+        timeout=30,
+    )
+    assert created.status_code == 200
+    restaurant_id = created.json()["id"]
+
+    fetched = httpx.get(f"{live_server}/restaurants/{restaurant_id}", timeout=30)
+    assert fetched.status_code == 200
+    assert fetched.json()["name"] == "The Live Server Cafe"
+
+    deleted = httpx.delete(
+        f"{live_server}/restaurants/{restaurant_id}", headers=auth, timeout=30
+    )
+    assert deleted.status_code == 200
+    assert (
+        httpx.get(f"{live_server}/restaurants/{restaurant_id}", timeout=30).status_code
+        == 404
+    )
 
 
 def test_invalid_params_rejected(live_server, auth):

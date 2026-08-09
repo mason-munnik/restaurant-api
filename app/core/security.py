@@ -1,3 +1,4 @@
+import logging
 import secrets
 
 from fastapi import Header, HTTPException, status
@@ -5,6 +6,8 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.core import config
+
+logger = logging.getLogger(__name__)
 
 
 def require_api_key(
@@ -20,10 +23,12 @@ def require_api_key(
             status.HTTP_500_INTERNAL_SERVER_ERROR, "Server API key not configured"
         )
     if not x_api_key:
+        logger.warning("Rejected request: missing API key")
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing API key")
     # Compare bytes: compare_digest raises TypeError on non-ASCII str, which
     # would surface as an unhandled 500 instead of a clean 403.
     if not secrets.compare_digest(x_api_key.encode(), expected.encode()):
+        logger.warning("Rejected request: invalid API key")
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Invalid API key")
 
 

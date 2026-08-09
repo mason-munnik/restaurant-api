@@ -1,8 +1,8 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class Review(BaseModel):
-    restaurant_id: int
+    restaurant_id: int = Field(gt=0)
     review_text: str
 
     @field_validator("review_text")
@@ -19,12 +19,4 @@ class Review(BaseModel):
         if len(words) < 3:
             raise ValueError("Review too short, must contain at least 3 words")
 
-        return v
-
-    @field_validator("restaurant_id")
-    @classmethod
-    def validate_restaurant_id(cls, v: int):
-        # wanted to set an upper bound for restaurant id that seems realistic
-        if v > 10000:
-            raise ValueError("Restaurant ID seems invalid, too large")
         return v

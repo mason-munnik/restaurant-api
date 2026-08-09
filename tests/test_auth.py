@@ -44,6 +44,30 @@ def test_delete_with_valid_api_key_reaches_handler(client):
     assert response.json() == {"detail": "Review not found"}
 
 
+def test_create_restaurant_without_api_key_returns_401(make_client):
+    response = make_client(api_key=None).post("/restaurants", json={"name": "Diner"})
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Missing API key"}
+
+
+def test_create_restaurant_with_wrong_api_key_returns_403(make_client):
+    response = make_client(api_key="nope").post("/restaurants", json={"name": "Diner"})
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Invalid API key"}
+
+
+def test_delete_restaurant_without_api_key_returns_401(make_client):
+    response = make_client(api_key=None).delete("/restaurants/1")
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Missing API key"}
+
+
+def test_delete_restaurant_with_wrong_api_key_returns_403(make_client):
+    response = make_client(api_key="nope").delete("/restaurants/1")
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Invalid API key"}
+
+
 def test_get_reviews_is_public_without_api_key(make_client):
     response = make_client(api_key=None).get("/reviews")
     assert response.status_code == 200

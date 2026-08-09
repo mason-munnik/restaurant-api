@@ -24,6 +24,7 @@ nlp.pipeline = _fake_pipeline_factory
 
 from app.api.routes import reviews  # noqa: E402
 from app.core import security  # noqa: E402
+from app.db import models  # noqa: E402
 from app.db.session import Base, get_db  # noqa: E402
 from app.main import app  # noqa: E402
 
@@ -84,6 +85,13 @@ def make_client(clean_security_env, monkeypatch):
     )
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
+
+    # Seeds restaurant_id=1 (first row in a fresh DB) as a valid FK target, so
+    # every existing test's hardcoded `restaurant_id: 1` payload keeps working
+    # without editing every call site.
+    with TestingSessionLocal() as db:
+        db.add(models.RestaurantModel(name="Seed Restaurant"))
+        db.commit()
 
     def override_get_db():
         db = TestingSessionLocal()
