@@ -41,20 +41,60 @@ def test_analyze_review_text_exactly_three_words_accepted(client):
     assert response.status_code == 200
 
 
-def test_analyze_restaurant_id_at_boundary_accepted(client):
+def test_analyze_restaurant_id_zero_rejected(client):
     response = client.post(
         "/analyze",
-        json={"restaurant_id": 10000, "review_text": "food was great"},
-    )
-    assert response.status_code == 200
-
-
-def test_analyze_restaurant_id_over_boundary_rejected(client):
-    response = client.post(
-        "/analyze",
-        json={"restaurant_id": 10001, "review_text": "food was great"},
+        json={"restaurant_id": 0, "review_text": "food was great"},
     )
     assert response.status_code == 422
+
+
+def test_analyze_unknown_restaurant_id_returns_404(client):
+    response = client.post(
+        "/analyze",
+        json={"restaurant_id": 999999, "review_text": "food was great"},
+    )
+    assert response.status_code == 404
+    assert client.get("/reviews").json() == []
+
+
+def test_get_review_by_id_returns_200(client):
+    created = client.post("/analyze", json=PAYLOAD).json()
+
+    response = client.get(f"/reviews/{created['id']}")
+    assert response.status_code == 200
+    assert response.json()["id"] == created["id"]
+
+
+def test_get_review_by_id_returns_404_when_missing(client):
+    assert client.get("/reviews/999999").status_code == 404
+
+
+def test_reviews_filtered_by_restaurant_id(client):
+    other_restaurant = client.post("/restaurants", json={"name": "Other Place"}).json()
+
+    client.post("/analyze", json=PAYLOAD)
+    client.post(
+        "/analyze",
+        json={"restaurant_id": other_restaurant["id"], "review_text": "food was great"},
+    )
+
+    response = client.get(f"/reviews?restaurant_id={other_restaurant['id']}")
+    assert response.status_code == 200
+    reviews = response.json()
+    assert len(reviews) == 1
+    assert reviews[0]["restaurant_id"] == other_restaurant["id"]
+
+
+def test_reviews_offset_skips_rows(client):
+    created = [client.post("/analyze", json=PAYLOAD).json() for _ in range(3)]
+
+    response = client.get("/reviews?offset=1&limit=10")
+    assert response.status_code == 200
+    returned_ids = [r["id"] for r in response.json()]
+    assert created[0]["id"] not in returned_ids
+    assert created[1]["id"] in returned_ids
+    assert created[2]["id"] in returned_ids
 
 
 def test_delete_existing_review_returns_200_and_removes_it(client):

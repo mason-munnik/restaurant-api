@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Response
@@ -9,6 +10,8 @@ from app.db import models
 from app.db.session import get_db
 from app.schemas.review import Review
 from app.services.nlp import SentimentAnalyzer
+
+logger = logging.getLogger(__name__)
 
 # Constructed here rather than in services/nlp.py on purpose: tests patch
 # `pipeline` on that module before this one is imported, so the analyzer must
@@ -36,6 +39,19 @@ def analyze(
 
     Returns a score between -1.0(Negative) and 1.0(Positive)
     """
+    restaurant = (
+        db.query(models.RestaurantModel)
+        .filter(models.RestaurantModel.id == review.restaurant_id)
+        .first()
+    )
+    if restaurant is None:
+        logger.warning(
+            "Analyze rejected: restaurant %s not found", review.restaurant_id
+        )
+        raise HTTPException(
+            status_code=404, detail=f"Restaurant {review.restaurant_id} not found"
+        )
+
     try:
         # get sentiment score
         score = analyzer.get_score(review.review_text)
@@ -65,9 +81,24 @@ def analyze(
 @router.get("/reviews")
 def list_reviews(
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    restaurant_id: int | None = None,
     db: Session = Depends(get_db),
 ):
-    return db.query(models.ReviewModel).limit(limit).all()
+    query = db.query(models.ReviewModel)
+    if restaurant_id is not None:
+        query = query.filter_by(restaurant_id=restaurant_id)
+    return query.offset(offset).limit(limit).all()
+
+
+@router.get("/reviews/{review_id}")
+def get_review(review_id: int, db: Session = Depends(get_db)):
+    review = (
+        db.query(models.ReviewModel).filter(models.ReviewModel.id == review_id).first()
+    )
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return review
 
 
 @router.delete("/reviews/{review_id}", dependencies=[Depends(require_api_key)])
